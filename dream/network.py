@@ -27,7 +27,6 @@ KNOWN_OPTIMIZERS = [
 
 
 def create_network_from_config_file(config_file_path, network_params_path=None):
-
     # Input argument handling
     assert os.path.exists(
         config_file_path
@@ -64,7 +63,6 @@ def create_network_from_config_file(config_file_path, network_params_path=None):
 
 
 def create_network_from_config_data(network_config_data):
-
     # Create the network
     dream_network = DreamNetwork(network_config_data)
     return dream_network
@@ -75,20 +73,23 @@ class DreamNetwork:
 
         # Assert input
         assert (
-            "architecture" in network_config
+                "architecture" in network_config
         ), 'Required key "architecture" is missing from network configuration.'
         assert (
-            "type" in network_config["architecture"]
+                "type" in network_config["architecture"]
         ), 'Required key "type" in dictionary "architecture" is missing from network configuration.'
         assert (
-            "manipulator" in network_config
+                "manipulator" in network_config
         ), 'Required key "manipulator" is missing from network configuration.'
         assert (
-            "name" in network_config["manipulator"]
+                "name" in network_config["manipulator"]
         ), 'Required key "name" in dictionary "manipulator" is missing from network configuration.'
         assert (
-            "keypoints" in network_config["manipulator"]
+                "keypoints" in network_config["manipulator"]
         ), 'Required key "keypoints" in dictionary "manipulator" is missing from network configuration.'
+
+        # device
+        self.cuda = True if torch.cuda.is_available() else False
 
         # Parse keypoint specification
         self.keypoint_names = []
@@ -123,7 +124,7 @@ class DreamNetwork:
 
         # Parse normalization
         assert (
-            "image_normalization" in self.network_config["architecture"]
+                "image_normalization" in self.network_config["architecture"]
         ), 'Required key "image_normalization" in dictionary "architecture" is missing from network configuration.'
         self.image_normalization = self.network_config["architecture"][
             "image_normalization"
@@ -131,55 +132,55 @@ class DreamNetwork:
 
         # Parse image preprocessing: how to handle what the network does between the input image and the network input layer
         assert (
-            "image_preprocessing" in self.network_config["architecture"]
+                "image_preprocessing" in self.network_config["architecture"]
         ), 'Required key "image_preprocessing" in dictionary "architecture" is missing from network configuration.'
         assert (
-            self.image_preprocessing() in dream.image_proc.KNOWN_IMAGE_PREPROC_TYPES
+                self.image_preprocessing() in dream.image_proc.KNOWN_IMAGE_PREPROC_TYPES
         ), 'Image preprocessing type "{}" is not recognized.'.format(
             self.image_preprocessing()
         )
 
         # Assert the output heads have been specified
         assert (
-            "output_heads" in self.network_config["architecture"]
+                "output_heads" in self.network_config["architecture"]
         ), 'Required key "output_heads" in dictionary "architecture" is missing from network configuration.'
 
         assert (
-            self.architecture_type in KNOWN_ARCHITECTURES
+                self.architecture_type in KNOWN_ARCHITECTURES
         ), 'Expected architecture type "{}" to be in the list of known network architectures, but it is not.'.format(
             self.architecture_type
         )
 
         # Assert that the input heads have been specified
         assert (
-            "input_heads" in self.network_config["architecture"]
+                "input_heads" in self.network_config["architecture"]
         ), 'Required key "input_heads" in dictionary "architecture" is missing from network configuration.'
         assert (
-            self.network_config["architecture"]["input_heads"][0] == "image_rgb"
+                self.network_config["architecture"]["input_heads"][0] == "image_rgb"
         ), 'First input head must be "image_rgb".'
 
         # Assert that the trained network input resolution has been specified
         # The output resolution is calculated at the end, after the model is created
         assert (
-            "training" in self.network_config
+                "training" in self.network_config
         ), 'Required key "training" is missing from network configuration.'
         assert (
-            "config" in self.network_config["training"]
+                "config" in self.network_config["training"]
         ), 'Required key "config" in dictionary "training" is missing from network configuration.'
         assert (
-            "net_input_resolution" in self.network_config["training"]["config"]
+                "net_input_resolution" in self.network_config["training"]["config"]
         ), 'Required key "net_input_resolution" is missing from training configuration.'
         len_trained_net_input_res = len(
             self.network_config["training"]["config"]["net_input_resolution"]
         )
         assert (
-            len_trained_net_input_res == 2
+                len_trained_net_input_res == 2
         ), "Expected trained net input resolution to have length 2, but it has length {}.".format(
             len_trained_net_input_res
         )
 
         assert (
-            "platform" in self.network_config["training"]
+                "platform" in self.network_config["training"]
         ), 'Required key "platform" in dictionary "training" is missing from network configuration.'
         gpu_ids = self.network_config["training"]["platform"]["gpu_ids"]
         data_parallel_device_ids = gpu_ids if gpu_ids else None
@@ -215,8 +216,8 @@ class DreamNetwork:
 
             # Check if using new decoder -- assume output is 100x100 if not
             if (
-                "deconv_decoder" in self.network_config["architecture"]
-                and not "full_output" in self.network_config["architecture"]
+                    "deconv_decoder" in self.network_config["architecture"]
+                    and not "full_output" in self.network_config["architecture"]
             ):
                 use_deconv_decoder = self.network_config["architecture"][
                     "deconv_decoder"
@@ -253,7 +254,9 @@ class DreamNetwork:
                         self.n_keypoints, **vgg_kwargs
                     ),
                     device_ids=data_parallel_device_ids,
-                ).cuda()
+                )
+                if self.cuda:
+                    self.model = self.model.cuda()
 
             loss_type = self.network_config["architecture"]["loss"]["type"]
 
@@ -307,8 +310,8 @@ class DreamNetwork:
         trained_net_out_res_from_model_as_list = list(trained_net_out_res_from_model)
         if "net_output_resolution" in self.network_config["training"]["config"]:
             assert (
-                self.network_config["training"]["config"]["net_output_resolution"]
-                == trained_net_out_res_from_model_as_list
+                    self.network_config["training"]["config"]["net_output_resolution"]
+                    == trained_net_out_res_from_model_as_list
             ), "Network model and config file disagree for trained network output resolution."
         else:
             # Add to config
@@ -366,12 +369,12 @@ class DreamNetwork:
     # image_raw_resolution: (width, height) in pixels
     # calls resolution_after_preprocessing under the hood, using network trained resolution as the reference resolution
     def net_resolutions_from_image_raw_resolution(
-        self, image_raw_resolution, image_preprocessing_override=None
+            self, image_raw_resolution, image_preprocessing_override=None
     ):
 
         # Input argument handling
         assert (
-            len(image_raw_resolution) == 2
+                len(image_raw_resolution) == 2
         ), 'Expected "image_raw_resolution" to have length 2, but it has length {}.'.format(
             len(image_raw_resolution)
         )
@@ -398,7 +401,7 @@ class DreamNetwork:
 
         # Input argument handling
         assert (
-            len(net_input_resolution) == 2
+                len(net_input_resolution) == 2
         ), 'Expected "net_input_resolution" to have length 2, but it has length {}.'.format(
             len(net_input_resolution)
         )
@@ -410,7 +413,9 @@ class DreamNetwork:
         with torch.no_grad():
             net_input_as_tensor_batch = torch.zeros(
                 1, 3, netin_height, netin_width
-            ).cuda()
+            )
+            if self.cuda:
+                net_input_as_tensor_batch = net_input_as_tensor_batch.cuda()
             net_output_as_tensor_batch = self.model(net_input_as_tensor_batch)
             net_output_shape = net_output_as_tensor_batch[0][0].shape
             net_output_resolution = (net_output_shape[2], net_output_shape[1])
@@ -421,7 +426,7 @@ class DreamNetwork:
     # Returns keypoints in the input image (not necessarily network input) frame
     # Allows for an optional overwrite
     def keypoints_from_image(
-        self, input_rgb_image_as_pil, image_preprocessing_override=None, debug=False
+            self, input_rgb_image_as_pil, image_preprocessing_override=None, debug=False
     ):
 
         # Input handling
@@ -462,7 +467,9 @@ class DreamNetwork:
         with torch.no_grad():
             input_rgb_image_as_tensor_batch = input_rgb_image_as_tensor.unsqueeze(
                 0
-            ).cuda()
+            )
+            if self.cuda:
+                input_rgb_image_as_tensor_batch = input_rgb_image_as_tensor_batch.cuda()
             belief_maps_net_out_batch, detected_kp_projs_net_out_batch = self.inference(
                 input_rgb_image_as_tensor_batch
             )
@@ -556,8 +563,8 @@ class DreamNetwork:
                                 peak, key=lambda x: x[2], reverse=True
                             )
                             if (
-                                peak_sorted_by_score[0][2] - peak_sorted_by_score[1][2]
-                                >= self.belief_peak_next_best_score
+                                    peak_sorted_by_score[0][2] - peak_sorted_by_score[1][2]
+                                    >= self.belief_peak_next_best_score
                             ):
                                 # Keep the best score
                                 detected_kp_projs.append(
@@ -616,7 +623,7 @@ class DreamNetwork:
         torch.save(self.model.state_dict(), network_params_path)
 
     def save_network(
-        self, output_dir, output_filename_without_extension, overwrite=False
+            self, output_dir, output_filename_without_extension, overwrite=False
     ):
 
         dream.utilities.makedirs(output_dir, exist_ok=overwrite)
@@ -637,10 +644,10 @@ class DreamNetwork:
         if not self.optimizer:
 
             assert (
-                "optimizer" in self.network_config["training"]["config"]
+                    "optimizer" in self.network_config["training"]["config"]
             ), 'Required key "optimizer" in dictionary "config" is missing from network configuration.'
             assert (
-                "type" in self.network_config["training"]["config"]["optimizer"]
+                    "type" in self.network_config["training"]["config"]["optimizer"]
             ), 'Required key "type" in dictionary "optimizer" is missing from network configuration.'
 
             network_parameters = filter(
@@ -651,7 +658,7 @@ class DreamNetwork:
             ]
 
             assert (
-                optimizer_type in KNOWN_OPTIMIZERS
+                    optimizer_type in KNOWN_OPTIMIZERS
             ), 'Expected optimizer_type "{}" to be in the list of known optimizers, but it is not.'.format(
                 optimizer_type
             )
@@ -659,8 +666,8 @@ class DreamNetwork:
             if optimizer_type == "adam":
 
                 assert (
-                    "learning_rate"
-                    in self.network_config["training"]["config"]["optimizer"]
+                        "learning_rate"
+                        in self.network_config["training"]["config"]["optimizer"]
                 ), 'Required key "learning_rate" in dictionary "optimizer" is missing to use the Adam optimizer.'
 
                 self.optimizer = torch.optim.Adam(
@@ -673,8 +680,8 @@ class DreamNetwork:
             elif optimizer_type == "sgd":
 
                 assert (
-                    "learning_rate"
-                    in self.network_config["training"]["config"]["optimizer"]
+                        "learning_rate"
+                        in self.network_config["training"]["config"]["optimizer"]
                 ), 'Required key "learning_rate" in dictionary "optimizer" is missing to use the SGD optimizer.'
 
                 self.optimizer = torch.optim.SGD(

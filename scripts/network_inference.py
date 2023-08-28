@@ -11,16 +11,19 @@ import numpy as np
 from ruamel.yaml import YAML
 import torch
 import torchvision.transforms as TVTransforms
+import sys
+
+sys.path.append('../dream')
 
 import dream
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 def generate_belief_map_visualizations(
-    belief_maps, keypoint_projs_detected, keypoint_projs_gt=None
+        belief_maps, keypoint_projs_detected, keypoint_projs_gt=None
 ):
-
     belief_map_images = dream.image_proc.images_from_belief_maps(
         belief_maps, normalization_method=6
     )
@@ -53,7 +56,6 @@ def generate_belief_map_visualizations(
 
 
 def network_inference(args):
-
     # Input argument handling
     assert os.path.exists(
         args.input_params_path
@@ -94,7 +96,8 @@ def network_inference(args):
     dream_network = dream.create_network_from_config_data(network_config)
 
     print("Loading network with weights from:  {} ...".format(args.input_params_path))
-    dream_network.model.load_state_dict(torch.load(args.input_params_path))
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    dream_network.model.load_state_dict(torch.load(args.input_params_path, map_location=device))
     dream_network.enable_evaluation()
 
     # Load in image
@@ -204,7 +207,6 @@ def network_inference(args):
     blended_array = []
 
     for n in range(len(kp_coords_wrtNetOutput_asArray)):
-
         bm_wrtNetOutput_asPilImage = belief_maps_wrtNetOutput_asListOfPilImages[n]
         kp = kp_coords_wrtNetInput_asArray[n]
         fname = dream_network.friendly_keypoint_names[n]
@@ -284,7 +286,6 @@ def network_inference(args):
 
 
 if __name__ == "__main__":
-
     print(
         "---------- Running 'network_inference.py' -------------------------------------------------"
     )
